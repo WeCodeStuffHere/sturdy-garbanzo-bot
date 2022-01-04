@@ -1,24 +1,43 @@
-const { Client, Intents, MessageEmbed } = require("discord.js");
+const { Client, Intents, MessageEmbed, Collection } = require("discord.js");
+const fs = require('fs');
 const CommandHandler = require("./src/CommandHandler");
-
-const dotenv = require("dotenv");
-dotenv.config();
+const dotenv = require("dotenv").config();
 
 const client = new Client({
   intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
 });
 
-const handler = new CommandHandler({client, prefix: "!"});
-
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}.`);
 });
 
-client.on("messageCreate", (message) => {
-  if (message.content.toLocaleLowerCase() == "ping") {
-    message.channel.send("pong");
+/* Read command files and save them on Collection */
+client.commands = new Collection();
+const commandFiles = fs.readdirSync('./src/commands').filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(`./src/commands/${file}`);
+  client.commands.set(command.data.name, command);
+}
+
+client.on('interactionCreate', async interaction => {
+  /* Ignore if it's not a command */
+  if (!interaction.isCommand()) return;
+
+  const command = client.commands.get(interaction.commandName);
+
+  /* Ignore if command does not exist */
+  if(!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
   }
 });
+
+const handler = new CommandHandler({client, prefix: "!"});
 
 // Abstract out the code that will be repeated.
 handler.use("welcome", (message) => {

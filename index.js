@@ -6,36 +6,15 @@ const dotenv = require("dotenv").config();
 const client = new Client({
   intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
 });
+client.commands = new Collection();
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}.`);
 });
 
-/* Read command files and save them on Collection */
-client.commands = new Collection();
-const commandFiles = fs.readdirSync('./src/commands').filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const command = require(`./src/commands/${file}`);
-  client.commands.set(command.data.name, command);
-}
-
-client.on('interactionCreate', async interaction => {
-  /* Ignore if it's not a command */
-  if (!interaction.isCommand()) return;
-
-  const command = client.commands.get(interaction.commandName);
-
-  /* Ignore if command does not exist */
-  if(!command) return;
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-  }
-});
+const register = require('./src/utils/register');
+register.registerCommands(client, '../commands');
+register.registerEvents(client, '../events');
 
 const handler = new CommandHandler({client, prefix: "!"});
 
@@ -64,9 +43,7 @@ handler.use("help", (message) => {
     });
   });
   
-
   message.channel.send({ embeds: [embed] });
 });
-
 
 client.login(process.env.TOKEN);
